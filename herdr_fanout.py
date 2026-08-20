@@ -11,13 +11,16 @@ Layout built by `apply`:
     +-----------+      +---------------+   +---------------+   +---------------+
 
 4 tabs total for 3 branches: the leader's own tab (one pane, never split),
-plus one tab per branch (Agent Pane | Normal Pane, split right). Each
-tab (and its agent pane's herdr sidebar label) defaults to "<kind>-<###>"
-(a random 3-digit suffix, e.g. "omp-233") unless a branch sets its own
-`display_name`. That label is cosmetic only — set via `pane
-report-metadata --display-agent` and `tab rename`/`tab create --label` —
-and is separate from the real, regex-constrained agent name used to
-address it (`herdr agent prompt <name>`).
+plus one tab per branch (Agent Pane | Normal Pane, split right). Each tab
+(and its agent pane's herdr display label) defaults to "<kind>-<###>" (a
+random 3-digit suffix, e.g. "omp-233") unless a branch sets its own
+`display_name`. The normal pane gets its own label too, defaulting to
+"<agent's display_name>-shell"; override per branch with
+`normal_pane.display_name`. Every one of these labels is cosmetic only —
+set via `pane rename` and `pane report-metadata --display-agent`, and
+`tab rename`/`tab create --label` for the tabs — and is separate from the
+real, regex-constrained agent name used to address it (`herdr agent
+prompt <name>`).
 
 Must run from inside a herdr pane (HERDR_ENV=1).
 """
@@ -153,18 +156,21 @@ def load_config(path):
     return cfg
 
 
-def label_agent_pane(pane_id, text):
-    """Set a cosmetic sidebar label for a pane, without touching its real
-    (regex-constrained) agent identity.
+def label_pane(pane_id, text):
+    """Set a cosmetic display name for a pane — agent or plain shell alike
+    — without touching its real (regex-constrained) agent identity.
 
     herdr's live agent name (the thing `agent start`/`agent prompt` address)
-    must match NAME_RE — lowercase, no spaces. But the sidebar text is a
-    separate "display-only" field (`effective_display_agent`, confirmed in
-    herdr's own source) that falls back to the real name only when unset.
-    `pane report-metadata --display-agent` sets that field directly, so a
-    pane can be addressed as "demo2" while the sidebar reads "Pane i+1".
-    `--source` is just a namespace tag for who reported this metadata.
+    must match NAME_RE — lowercase, no spaces. Display text is separate:
+    `pane rename` sets a manual label (the top-priority text herdr shows
+    for a pane), and `pane report-metadata --display-agent` sets a second,
+    overlapping display field used in other views. A plain shell pane (no
+    agent at all — a normal pane) has neither a name nor a kind to fall
+    back on, so without this it would otherwise just read "shell". Setting
+    both covers it, and every other pane, the same way. `--source` is just
+    a namespace tag for who reported the metadata.
     """
+    herdr("pane", "rename", pane_id, text)
     herdr(
         "pane", "report-metadata", pane_id,
         "--source", "herdr-fanout", "--display-agent", text,
@@ -212,7 +218,7 @@ def cmd_apply(args):
     # panes: Agent Pane | Normal Pane, split right (a vertical dividing
     # line, panes side by side).
     herdr("tab", "rename", leader_tab, leader_name)
-    label_agent_pane(leader, leader_name)
+    label_pane(leader, leader_name)
 
     used_names = set()
     started = []
@@ -232,13 +238,20 @@ def cmd_apply(args):
 
         name = b["name"]
         start_agent_with_retry(name, kind, agent_pane)
-        label_agent_pane(agent_pane, display_name)
+        label_pane(agent_pane, display_name)
 
-        normal_cmd = (b.get("normal_pane") or {}).get("command")
+        normal_cfg = b.get("normal_pane") or {}
+        normal_name = normal_cfg.get("display_name") or f"{display_name}-shell"
+        label_pane(normal_pane, normal_name)
+
+        normal_cmd = normal_cfg.get("command")
         if normal_cmd:
             herdr("pane", "run", normal_pane, normal_cmd)
 
-        print(f"branch {name} ({display_name}): agent_pane={agent_pane} normal_pane={normal_pane}")
+        print(
+            f"branch {name} ({display_name}): "
+            f"agent_pane={agent_pane} normal_pane={normal_pane} ({normal_name})"
+        )
         started.append((name, b["prompt"]))
 
     # Now that every agent exists, prompt them all at once. This is the part
@@ -284,6 +297,7 @@ branches:
     # display_name: "claude-177"  # tab + sidebar label; defaults to "<kind>-<random 3 digits>"
     prompt: "TODO: describe agent1's slice of the task"
     normal_pane:
+      # display_name: "claude-177-shell"  # defaults to "<agent's display_name>-shell"
       command: null          # e.g. "tail -f logs/agent1.log", or omit for an idle shell
 
   - name: agent2
