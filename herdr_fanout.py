@@ -3,18 +3,19 @@
 
 Layout built by `apply`:
 
-    Leader tab (untouched)          Branches tab (new)
-    +-------------------+           +-----------------------------+
-    |                   |           |  Pane i    -> Agent | Normal |
-    |    Leader pane    |           |  Pane i+1  -> Agent | Normal |
-    |                   |           |  Pane i+2  -> Agent | Normal |
-    +-------------------+           +-----------------------------+
+    Tab: Leader        Tab: Tab i          Tab: Tab i+1        Tab: Tab i+2
+    +-----------+      +---------------+   +---------------+   +---------------+
+    |           |      | Agent | Normal|   | Agent | Normal|   | Agent | Normal|
+    | Leader    |      | Pane  | Pane  |   | Pane  | Pane  |   | Pane  | Pane  |
+    | pane      |      |       |       |   |       |       |   |       |       |
+    +-----------+      +---------------+   +---------------+   +---------------+
 
-The leader pane is never split. Branches live in a separate tab, split into
-N even rows. Each pane's herdr sidebar label ("Leader", "Pane i", "Pane
-i+1", ...) is cosmetic only — set via `pane report-metadata
---display-agent` — and is separate from the real, regex-constrained agent
-name used to address it (`herdr agent prompt <name>`).
+4 tabs total for 3 branches: the leader's own tab (one pane, never split),
+plus one tab per branch (Agent Pane | Normal Pane, split right). Each
+pane's herdr sidebar label ("Leader", "Tab i", "Tab i+1", ...) is cosmetic
+only — set via `pane report-metadata --display-agent` — and is separate
+from the real, regex-constrained agent name used to address it (`herdr
+agent prompt <name>`).
 
 Must run from inside a herdr pane (HERDR_ENV=1).
 """
@@ -167,67 +168,37 @@ def label_agent_pane(pane_id, text):
     )
 
 
-def row_ratios(n):
-    """Ratios to split a chain of n panes into n even rows.
-
-    Splitting a pane in half twice (the naive/default approach) gives rows
-    of 1/2, 1/4, 1/8, ... — not what "N even branches" means. Instead, peel
-    rows off the BOTTOM of the trunk, working backwards from the last row:
-    with `remaining` rows still sitting in the trunk, the bottom one is a
-    1/remaining slice, so the trunk keeps (remaining-1)/remaining. Do this
-    for remaining = n, n-1, ..., 2, and every row ends up 1/n of the total.
-    """
-    return [(r - 1) / r for r in range(n, 1, -1)]
-
-
 def cmd_apply(args):
     if os.environ.get("HERDR_ENV") != "1":
         sys.exit("error: not inside a herdr pane")
     leader = os.environ.get("HERDR_PANE_ID")
+    leader_tab = os.environ.get("HERDR_TAB_ID")
     workspace = os.environ.get("HERDR_WORKSPACE_ID")
-    if not leader or not workspace:
-        sys.exit("error: HERDR_PANE_ID / HERDR_WORKSPACE_ID is not set")
+    if not leader or not leader_tab or not workspace:
+        sys.exit("error: HERDR_PANE_ID / HERDR_TAB_ID / HERDR_WORKSPACE_ID is not set")
 
     cfg = load_config(args.config)
     cwd = cfg.get("cwd", os.getcwd())
     default_kind = cfg.get("agent_kind", "claude")
     timeout_ms = cfg.get("wait_timeout_ms", 300000)
-    tab_label = cfg.get("tab_label", "Agents")
     branches = cfg["branches"]
-    n = len(branches)
 
+    # The leader pane keeps its own tab, with exactly one pane — never
+    # split. Every branch gets its own separate tab, holding just two
+    # panes: Agent Pane | Normal Pane, split right (a vertical dividing
+    # line, panes side by side).
+    herdr("tab", "rename", leader_tab, "Leader")
     label_agent_pane(leader, "Leader")
 
-    # The leader pane is never split — not even once. Branches live in their
-    # own tab instead, so the leader stays exactly as it was before `apply`
-    # ran. That tab's root pane becomes the "column", divided into N even
-    # rows.
-    #
-    # Building all N rows is its own pass, finished before phase 2 splits
-    # any row into Agent Pane | Normal Pane. Splitting a row right *before*
-    # the rows below it exist would fix that row's normal pane to whatever
-    # height the row had at that moment — then later down-splits shrink the
-    # row without ever resizing a pane that's no longer its direct sibling.
-    column = herdr(
-        "tab", "create", "--workspace", workspace, "--cwd", cwd,
-        "--label", tab_label, "--no-focus",
-    )["result"]["root_pane"]["pane_id"]
-
-    rows = [None] * n
-    trunk = column
-    for remaining, ratio in zip(range(n, 1, -1), row_ratios(n)):
-        row_pane = herdr(
-            "pane", "split", "--pane", trunk, "--direction", "down",
-            "--ratio", str(ratio), "--cwd", cwd, "--no-focus",
-        )["result"]["pane"]["pane_id"]
-        rows[remaining - 1] = row_pane
-    rows[0] = trunk
-
-    # Phase 2: split each row right into Agent Pane | Normal Pane, and start
-    # each agent. Safe to do now — no row's height changes after this point.
     started = []
-    for i, (b, row_pane) in enumerate(zip(branches, rows)):
-        agent_pane = row_pane
+    for i, b in enumerate(branches):
+        display_name = b.get("display_name") or ("Tab i" if i == 0 else f"Tab i+{i}")
+
+        agent_pane = herdr(
+            "tab", "create", "--workspace", workspace, "--cwd", cwd,
+            "--label", display_name, "--no-focus",
+        )["result"]["root_pane"]["pane_id"]
+
         normal_pane = herdr(
             "pane", "split", "--pane", agent_pane, "--direction", "right",
             "--cwd", cwd, "--no-focus",
@@ -236,8 +207,6 @@ def cmd_apply(args):
         name = b["name"]
         kind = b.get("kind", default_kind)
         start_agent_with_retry(name, kind, agent_pane)
-
-        display_name = b.get("display_name") or ("Pane i" if i == 0 else f"Pane i+{i}")
         label_agent_pane(agent_pane, display_name)
 
         normal_cmd = (b.get("normal_pane") or {}).get("command")
@@ -281,14 +250,10 @@ agent_kind: claude
 # Default timeout (ms) for each agent's --wait.
 wait_timeout_ms: 300000
 
-# Label for the new tab the branches are built in. The leader pane's own
-# tab is never touched.
-tab_label: Agents
-
 branches:
   - name: agent1
     kind: claude
-    # display_name: "Pane i"      # sidebar label; defaults to "Pane i", "Pane i+1", ...
+    # display_name: "Tab i"       # tab + sidebar label; defaults to "Tab i", "Tab i+1", ...
     prompt: "TODO: describe agent1's slice of the task"
     normal_pane:
       command: null          # e.g. "tail -f logs/agent1.log", or omit for an idle shell

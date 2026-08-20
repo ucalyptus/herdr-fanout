@@ -3,26 +3,27 @@
 Build a leader/seed multi-agent [herdr](https://herdr.dev) pane layout from a YAML config.
 
 ```text
-Leader tab (untouched)          Branches tab (new)
-+-------------------+           +-----------------------------+
-|                   |           |  Pane i    -> Agent | Normal |
-|    Leader pane    |           |  Pane i+1  -> Agent | Normal |
-|                   |           |  Pane i+2  -> Agent | Normal |
-+-------------------+           +-----------------------------+
+Tab: Leader        Tab: Tab i          Tab: Tab i+1        Tab: Tab i+2
++-----------+      +---------------+   +---------------+   +---------------+
+| Leader    |      | Agent | Normal|   | Agent | Normal|   | Agent | Normal|
+| pane      |      | Pane  | Pane  |   | Pane  | Pane  |   | Pane  | Pane  |
++-----------+      +---------------+   +---------------+   +---------------+
 ```
 
-The leader pane is never split — it stays exactly as it was. Branches are
-built in a new tab, split into N even rows. Each row runs one agent (any
-kind herdr supports: `claude`, `pi`, `omp`, `codex`, `gemini`, `cursor`,
-`cline`, ...) with its own prompt, paired with a plain "normal pane" you can
-point at a log, a test watcher, or leave idle.
+4 tabs for 3 branches: the leader keeps its own tab with one pane, never
+split. Every branch gets its own separate tab holding two panes — Agent
+Pane | Normal Pane, split right (vertical dividing line, side by side).
+Each agent (any kind herdr supports: `claude`, `pi`, `omp`, `codex`,
+`gemini`, `cursor`, `cline`, ...) runs its own prompt; the normal pane is a
+plain shell you can point at a log, a test watcher, or leave idle.
 
-Every pane also gets a cosmetic herdr sidebar label — "Leader", "Pane i",
-"Pane i+1", ... — set via `pane report-metadata --display-agent`. This is
-separate from the real agent name used to address it (`herdr agent prompt
-demo1 ...` still works even though the sidebar shows "Pane i"), because
-herdr's live agent names must be lowercase identifiers and can't hold text
-like "Pane i+1".
+Every pane also gets a cosmetic herdr sidebar label — "Leader", "Tab i",
+"Tab i+1", ... — set via `pane report-metadata --display-agent`, and the
+tabs themselves are renamed to match (`tab rename` / `tab create --label`).
+This is separate from the real agent name used to address it (`herdr agent
+prompt demo1 ...` still works even though the sidebar shows "Tab i"),
+because herdr's live agent names must be lowercase identifiers and can't
+hold text like "Tab i+1".
 
 ## Install
 
@@ -53,13 +54,12 @@ herdr-fanout apply my-fanout.yaml    # build the layout
 version: 1
 agent_kind: claude          # default kind for branches that don't set their own
 wait_timeout_ms: 300000     # default --wait timeout per agent
-tab_label: Agents           # label for the new tab branches are built in
 # cwd: /path/to/project     # defaults to the current directory
 
 branches:
   - name: agent1
     kind: claude             # optional per-branch override
-    # display_name: "Pane i" # sidebar label; defaults to "Pane i", "Pane i+1", ...
+    # display_name: "Tab i"  # tab + sidebar label; defaults to "Tab i", "Tab i+1", ...
     prompt: "..."
     normal_pane:
       command: null          # e.g. "tail -f logs/agent1.log", or null for an idle shell
