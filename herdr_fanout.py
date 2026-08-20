@@ -3,14 +3,18 @@
 
 Layout built by `apply`:
 
-    Leader pane (untouched, full height)  |  Pane i     -> Agent Pane | Normal Pane
-                                           |  Pane i+1   -> Agent Pane | Normal Pane
-                                           |  Pane i+2   -> Agent Pane | Normal Pane
+    Leader tab (untouched)          Branches tab (new)
+    +-------------------+           +-----------------------------+
+    |                   |           |  Pane i    -> Agent | Normal |
+    |    Leader pane    |           |  Pane i+1  -> Agent | Normal |
+    |                   |           |  Pane i+2  -> Agent | Normal |
+    +-------------------+           +-----------------------------+
 
-Rows are split evenly. Each agent pane's herdr sidebar label ("Leader",
-"Pane i", "Pane i+1", ...) is cosmetic only — set via
-`pane report-metadata --display-agent` — and is separate from the real,
-regex-constrained agent name used to address it (`herdr agent prompt <name>`).
+The leader pane is never split. Branches live in a separate tab, split into
+N even rows. Each pane's herdr sidebar label ("Leader", "Pane i", "Pane
+i+1", ...) is cosmetic only — set via `pane report-metadata
+--display-agent` — and is separate from the real, regex-constrained agent
+name used to address it (`herdr agent prompt <name>`).
 
 Must run from inside a herdr pane (HERDR_ENV=1).
 """
@@ -180,32 +184,34 @@ def cmd_apply(args):
     if os.environ.get("HERDR_ENV") != "1":
         sys.exit("error: not inside a herdr pane")
     leader = os.environ.get("HERDR_PANE_ID")
-    if not leader:
-        sys.exit("error: HERDR_PANE_ID is not set")
+    workspace = os.environ.get("HERDR_WORKSPACE_ID")
+    if not leader or not workspace:
+        sys.exit("error: HERDR_PANE_ID / HERDR_WORKSPACE_ID is not set")
 
     cfg = load_config(args.config)
     cwd = cfg.get("cwd", os.getcwd())
     default_kind = cfg.get("agent_kind", "claude")
     timeout_ms = cfg.get("wait_timeout_ms", 300000)
+    tab_label = cfg.get("tab_label", "Agents")
     branches = cfg["branches"]
     n = len(branches)
 
     label_agent_pane(leader, "Leader")
 
-    # Phase 1: carve out N even rows before touching any of them further.
-    # The leader is split once, direction right, opening a "branches column"
-    # beside it — the leader itself is never split again, so it stays whole,
-    # like the diagram. Then that column is divided into N even rows.
+    # The leader pane is never split — not even once. Branches live in their
+    # own tab instead, so the leader stays exactly as it was before `apply`
+    # ran. That tab's root pane becomes the "column", divided into N even
+    # rows.
     #
-    # This has to be its own pass, finished before phase 2 splits any row
-    # into Agent Pane | Normal Pane. Splitting a row right *before* the rows
-    # below it exist would fix that row's normal pane to whatever height the
-    # row had at that moment — then later down-splits shrink the row without
-    # ever resizing a pane that's no longer its direct sibling.
+    # Building all N rows is its own pass, finished before phase 2 splits
+    # any row into Agent Pane | Normal Pane. Splitting a row right *before*
+    # the rows below it exist would fix that row's normal pane to whatever
+    # height the row had at that moment — then later down-splits shrink the
+    # row without ever resizing a pane that's no longer its direct sibling.
     column = herdr(
-        "pane", "split", "--pane", leader, "--direction", "right",
-        "--cwd", cwd, "--no-focus",
-    )["result"]["pane"]["pane_id"]
+        "tab", "create", "--workspace", workspace, "--cwd", cwd,
+        "--label", tab_label, "--no-focus",
+    )["result"]["root_pane"]["pane_id"]
 
     rows = [None] * n
     trunk = column
@@ -274,6 +280,10 @@ agent_kind: claude
 
 # Default timeout (ms) for each agent's --wait.
 wait_timeout_ms: 300000
+
+# Label for the new tab the branches are built in. The leader pane's own
+# tab is never touched.
+tab_label: Agents
 
 branches:
   - name: agent1

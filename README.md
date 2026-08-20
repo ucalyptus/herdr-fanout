@@ -3,16 +3,19 @@
 Build a leader/seed multi-agent [herdr](https://herdr.dev) pane layout from a YAML config.
 
 ```text
-Leader pane (untouched, full height)  |  Pane i     -> Agent Pane | Normal Pane
-                                       |  Pane i+1   -> Agent Pane | Normal Pane
-                                       |  Pane i+2   -> Agent Pane | Normal Pane
+Leader tab (untouched)          Branches tab (new)
++-------------------+           +-----------------------------+
+|                   |           |  Pane i    -> Agent | Normal |
+|    Leader pane    |           |  Pane i+1  -> Agent | Normal |
+|                   |           |  Pane i+2  -> Agent | Normal |
++-------------------+           +-----------------------------+
 ```
 
-The leader pane is never split — it stays whole. The branches form a column
-beside it, split into N even rows. Each row runs one agent (any kind herdr
-supports: `claude`, `pi`, `omp`, `codex`, `gemini`, `cursor`, `cline`, ...)
-with its own prompt, paired with a plain "normal pane" you can point at a
-log, a test watcher, or leave idle.
+The leader pane is never split — it stays exactly as it was. Branches are
+built in a new tab, split into N even rows. Each row runs one agent (any
+kind herdr supports: `claude`, `pi`, `omp`, `codex`, `gemini`, `cursor`,
+`cline`, ...) with its own prompt, paired with a plain "normal pane" you can
+point at a log, a test watcher, or leave idle.
 
 Every pane also gets a cosmetic herdr sidebar label — "Leader", "Pane i",
 "Pane i+1", ... — set via `pane report-metadata --display-agent`. This is
@@ -50,6 +53,7 @@ herdr-fanout apply my-fanout.yaml    # build the layout
 version: 1
 agent_kind: claude          # default kind for branches that don't set their own
 wait_timeout_ms: 300000     # default --wait timeout per agent
+tab_label: Agents           # label for the new tab branches are built in
 # cwd: /path/to/project     # defaults to the current directory
 
 branches:
