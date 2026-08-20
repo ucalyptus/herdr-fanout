@@ -3,7 +3,7 @@
 
 Layout built by `apply`:
 
-    Tab: Leader        Tab: Tab i          Tab: Tab i+1        Tab: Tab i+2
+    Tab: Leader        Tab: claude-177     Tab: omp-233        Tab: pi-134
     +-----------+      +---------------+   +---------------+   +---------------+
     |           |      | Agent | Normal|   | Agent | Normal|   | Agent | Normal|
     | Leader    |      | Pane  | Pane  |   | Pane  | Pane  |   | Pane  | Pane  |
@@ -12,16 +12,19 @@ Layout built by `apply`:
 
 4 tabs total for 3 branches: the leader's own tab (one pane, never split),
 plus one tab per branch (Agent Pane | Normal Pane, split right). Each
-pane's herdr sidebar label ("Leader", "Tab i", "Tab i+1", ...) is cosmetic
-only — set via `pane report-metadata --display-agent` — and is separate
-from the real, regex-constrained agent name used to address it (`herdr
-agent prompt <name>`).
+tab (and its agent pane's herdr sidebar label) defaults to "<kind>-<###>"
+(a random 3-digit suffix, e.g. "omp-233") unless a branch sets its own
+`display_name`. That label is cosmetic only — set via `pane
+report-metadata --display-agent` and `tab rename`/`tab create --label` —
+and is separate from the real, regex-constrained agent name used to
+address it (`herdr agent prompt <name>`).
 
 Must run from inside a herdr pane (HERDR_ENV=1).
 """
 import argparse
 import json
 import os
+import random
 import re
 import subprocess
 import sys
@@ -168,6 +171,26 @@ def label_agent_pane(pane_id, text):
     )
 
 
+def default_display_name(kind, used):
+    """<kind>-<###> with a random 3-digit suffix, e.g. "omp-233".
+
+    Retries on collision within this run (a set, not just a range check,
+    since two branches can share a kind — "claude-177" and "claude-177"
+    would otherwise be ambiguous in the tab bar). 50 tries against a
+    900-value range is generous for any realistic branch count; if every
+    try collides anyway, fall back to one more draw rather than loop
+    forever — a rare cosmetic duplicate beats a hang.
+    """
+    for _ in range(50):
+        candidate = f"{kind}-{random.randint(100, 999)}"
+        if candidate not in used:
+            used.add(candidate)
+            return candidate
+    candidate = f"{kind}-{random.randint(100, 999)}"
+    used.add(candidate)
+    return candidate
+
+
 def cmd_apply(args):
     if os.environ.get("HERDR_ENV") != "1":
         sys.exit("error: not inside a herdr pane")
@@ -181,18 +204,21 @@ def cmd_apply(args):
     cwd = cfg.get("cwd", os.getcwd())
     default_kind = cfg.get("agent_kind", "claude")
     timeout_ms = cfg.get("wait_timeout_ms", 300000)
+    leader_name = cfg.get("leader_name", "Leader")
     branches = cfg["branches"]
 
     # The leader pane keeps its own tab, with exactly one pane — never
     # split. Every branch gets its own separate tab, holding just two
     # panes: Agent Pane | Normal Pane, split right (a vertical dividing
     # line, panes side by side).
-    herdr("tab", "rename", leader_tab, "Leader")
-    label_agent_pane(leader, "Leader")
+    herdr("tab", "rename", leader_tab, leader_name)
+    label_agent_pane(leader, leader_name)
 
+    used_names = set()
     started = []
-    for i, b in enumerate(branches):
-        display_name = b.get("display_name") or ("Tab i" if i == 0 else f"Tab i+{i}")
+    for b in branches:
+        kind = b.get("kind", default_kind)
+        display_name = b.get("display_name") or default_display_name(kind, used_names)
 
         agent_pane = herdr(
             "tab", "create", "--workspace", workspace, "--cwd", cwd,
@@ -205,7 +231,6 @@ def cmd_apply(args):
         )["result"]["pane"]["pane_id"]
 
         name = b["name"]
-        kind = b.get("kind", default_kind)
         start_agent_with_retry(name, kind, agent_pane)
         label_agent_pane(agent_pane, display_name)
 
@@ -250,10 +275,13 @@ agent_kind: claude
 # Default timeout (ms) for each agent's --wait.
 wait_timeout_ms: 300000
 
+# Tab + sidebar label for the leader pane.
+leader_name: Leader
+
 branches:
   - name: agent1
     kind: claude
-    # display_name: "Tab i"       # tab + sidebar label; defaults to "Tab i", "Tab i+1", ...
+    # display_name: "claude-177"  # tab + sidebar label; defaults to "<kind>-<random 3 digits>"
     prompt: "TODO: describe agent1's slice of the task"
     normal_pane:
       command: null          # e.g. "tail -f logs/agent1.log", or omit for an idle shell

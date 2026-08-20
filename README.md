@@ -3,7 +3,7 @@
 Build a leader/seed multi-agent [herdr](https://herdr.dev) pane layout from a YAML config.
 
 ```text
-Tab: Leader        Tab: Tab i          Tab: Tab i+1        Tab: Tab i+2
+Tab: Leader        Tab: claude-177     Tab: omp-233        Tab: pi-134
 +-----------+      +---------------+   +---------------+   +---------------+
 | Leader    |      | Agent | Normal|   | Agent | Normal|   | Agent | Normal|
 | pane      |      | Pane  | Pane  |   | Pane  | Pane  |   | Pane  | Pane  |
@@ -17,13 +17,15 @@ Each agent (any kind herdr supports: `claude`, `pi`, `omp`, `codex`,
 `gemini`, `cursor`, `cline`, ...) runs its own prompt; the normal pane is a
 plain shell you can point at a log, a test watcher, or leave idle.
 
-Every pane also gets a cosmetic herdr sidebar label — "Leader", "Tab i",
-"Tab i+1", ... — set via `pane report-metadata --display-agent`, and the
-tabs themselves are renamed to match (`tab rename` / `tab create --label`).
-This is separate from the real agent name used to address it (`herdr agent
-prompt demo1 ...` still works even though the sidebar shows "Tab i"),
-because herdr's live agent names must be lowercase identifiers and can't
-hold text like "Tab i+1".
+Every pane also gets a cosmetic herdr sidebar label, and the tab itself is
+renamed to match (`tab rename` / `tab create --label`, `pane
+report-metadata --display-agent`). The leader defaults to "Leader"
+(override with `leader_name`); each branch defaults to `<kind>-<random
+3-digit number>` — e.g. "omp-233", "claude-177", "pi-134" — or set your own
+per branch with `display_name`. This label is cosmetic only, separate from
+the real agent name used to address it (`herdr agent prompt demo1 ...`
+still works even though the sidebar shows "omp-233"), because herdr's live
+agent names must be lowercase identifiers and can't hold text like that.
 
 ## Install
 
@@ -54,12 +56,13 @@ herdr-fanout apply my-fanout.yaml    # build the layout
 version: 1
 agent_kind: claude          # default kind for branches that don't set their own
 wait_timeout_ms: 300000     # default --wait timeout per agent
+leader_name: Leader         # tab + sidebar label for the leader pane
 # cwd: /path/to/project     # defaults to the current directory
 
 branches:
   - name: agent1
     kind: claude             # optional per-branch override
-    # display_name: "Tab i"  # tab + sidebar label; defaults to "Tab i", "Tab i+1", ...
+    # display_name: "claude-177"  # tab + sidebar label; defaults to "<kind>-<random 3 digits>"
     prompt: "..."
     normal_pane:
       command: null          # e.g. "tail -f logs/agent1.log", or null for an idle shell
