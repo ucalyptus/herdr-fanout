@@ -1,0 +1,24 @@
+# Three branches, three different agent kinds. This is the shape of the
+# repo's own demo.yaml — a plain fan-out with no naming or command
+# customization.
+version: 1
+wait_timeout_ms: 90000
+
+branches:
+  - name: agent1
+    kind: claude
+    prompt: "Print today's date, your working directory, and a 1-line hello. Then stop."
+    normal_pane:
+      command: null
+
+  - name: agent2
+    kind: omp
+    prompt: "Print today's date, your working directory, and a 1-line hello. Then stop."
+    normal_pane:
+      command: null
+
+  - name: agent3
+    kind: pi
+    prompt: "Print today's date, your working directory, and a 1-line hello. Then stop."
+    normal_pane:
+      command: null

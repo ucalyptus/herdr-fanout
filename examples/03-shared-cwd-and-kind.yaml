@@ -1,0 +1,19 @@
+# agent_kind sets the default kind for every branch, so branches only need
+# to override it when they differ. cwd pins every split pane (leader
+# excluded — that pane already exists) to one working directory instead of
+# wherever `herdr-fanout apply` happens to be run from.
+version: 1
+agent_kind: claude
+cwd: /Users/ucalyptus/hustles/herdr-fanout
+wait_timeout_ms: 180000
+
+branches:
+  - name: reader
+    prompt: "Read every .py file in this directory and list their top-level functions. Then stop."
+
+  - name: writer
+    prompt: "Write a 3-line CHANGELOG entry for the most recent commit. Then stop."
+
+  - name: reviewer
+    kind: codex          # overrides agent_kind for this one branch
+    prompt: "Review herdr_fanout.py for obvious bugs. Then stop."

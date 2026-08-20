@@ -1,0 +1,26 @@
+# normal_pane.command runs a plain shell command in the branch's second
+# pane as soon as it's created — a log tail, a test watcher, a dev server
+# — instead of leaving it as an idle shell. Omit `command` (or set it to
+# null) for an idle shell, as in the other examples.
+version: 1
+agent_kind: claude
+wait_timeout_ms: 300000
+
+branches:
+  - name: backend
+    prompt: "Add a health-check endpoint to the backend. Then stop."
+    normal_pane:
+      display_name: backend-server
+      command: "npm --prefix backend run dev"
+
+  - name: tests
+    prompt: "Fix the failing test in test_health.py. Then stop."
+    normal_pane:
+      display_name: test-watch
+      command: "pytest -f"
+
+  - name: docs
+    prompt: "Document the new health-check endpoint in README.md. Then stop."
+    normal_pane:
+      display_name: docs-idle
+      command: null

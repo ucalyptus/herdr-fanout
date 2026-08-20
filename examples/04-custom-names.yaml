@@ -1,0 +1,32 @@
+# Every pane herdr-fanout builds gets a cosmetic display name: the leader,
+# each agent pane, and each normal pane. Left unset, they default to
+# "Leader", "<kind>-<random 3 digits>" (e.g. "claude-177"), and
+# "<agent's display_name>-shell" (e.g. "claude-177-shell"). This example
+# sets all of them explicitly instead.
+version: 1
+leader_name: Mission Control
+
+branches:
+  - name: frontend
+    kind: claude
+    display_name: frontend-claude
+    prompt: "Work on the frontend. Then stop."
+    normal_pane:
+      display_name: frontend-logs
+      command: null
+
+  - name: backend
+    kind: omp
+    display_name: backend-omp
+    prompt: "Work on the backend. Then stop."
+    normal_pane:
+      display_name: backend-logs
+      command: null
+
+  - name: infra
+    kind: pi
+    display_name: infra-pi
+    prompt: "Work on infra. Then stop."
+    normal_pane:
+      display_name: infra-logs
+      command: null

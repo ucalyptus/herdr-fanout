@@ -1,0 +1,12 @@
+# Minimal config: only what herdr-fanout needs to build a layout.
+#
+# Every other field (agent_kind, cwd, wait_timeout_ms, leader_name,
+# display_name, normal_pane) is optional and falls back to a sensible
+# default. See 04-custom-names.yaml and 05-normal-pane-commands.yaml for
+# those.
+version: 1
+
+branches:
+  - name: agent1
+    kind: claude
+    prompt: "Summarize the README in this directory. Then stop."
