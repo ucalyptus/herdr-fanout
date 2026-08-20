@@ -95,6 +95,5 @@ live agent names.
 - `examples/` — several ready-to-run configs, one per supported feature
   (minimal, multiple kinds, shared `cwd`/`agent_kind`, custom names,
   `normal_pane.command`). See `examples/README.md`.
-- `demo.yaml` — the fixture used to test this tool during development.
 - `fanout.sh` — earlier bash prototype, kept for reference. `herdr_fanout.py`
   supersedes it.

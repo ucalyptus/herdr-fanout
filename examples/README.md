@@ -12,7 +12,7 @@ herdr-fanout apply examples/01-minimal.yaml
 | File | Shows |
 |---|---|
 | `01-minimal.yaml` | The smallest valid config — one branch, only `name`/`kind`/`prompt` set. |
-| `02-multi-kind.yaml` | Three branches, three agent kinds (`claude`, `omp`, `pi`), no naming or command overrides. Same shape as the repo's `demo.yaml`. |
+| `02-multi-kind.yaml` | Three branches, three agent kinds (`claude`, `omp`, `pi`), no naming or command overrides. |
 | `03-shared-cwd-and-kind.yaml` | Top-level `agent_kind` and `cwd` shared by all branches, with one branch overriding `kind`. |
 | `04-custom-names.yaml` | `leader_name` plus a `display_name` for every agent pane and every normal pane. |
 | `05-normal-pane-commands.yaml` | `normal_pane.command` running a real command (dev server, test watcher) instead of an idle shell. |
