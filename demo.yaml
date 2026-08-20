@@ -1,0 +1,22 @@
+version: 1
+wait_timeout_ms: 90000
+cwd: /Users/ucalyptus
+
+branches:
+  - name: demo1
+    kind: claude
+    prompt: "Print today's date, your working directory, and a 1-line hello. Then stop."
+    normal_pane:
+      command: null
+
+  - name: demo2
+    kind: omp
+    prompt: "Print today's date, your working directory, and a 1-line hello. Then stop."
+    normal_pane:
+      command: null
+
+  - name: demo3
+    kind: pi
+    prompt: "Print today's date, your working directory, and a 1-line hello. Then stop."
+    normal_pane:
+      command: null

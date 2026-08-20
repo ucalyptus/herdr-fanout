@@ -3,15 +3,23 @@
 Build a leader/seed multi-agent [herdr](https://herdr.dev) pane layout from a YAML config.
 
 ```text
-leader pane
-  -> branch 1 pane  -> split right -> Agent Pane | Normal Pane
-  -> branch 2 pane  -> split right -> Agent Pane | Normal Pane
-  -> branch N pane  -> split right -> Agent Pane | Normal Pane
+Leader pane (untouched, full height)  |  Pane i     -> Agent Pane | Normal Pane
+                                       |  Pane i+1   -> Agent Pane | Normal Pane
+                                       |  Pane i+2   -> Agent Pane | Normal Pane
 ```
 
-Each branch runs one agent (any kind herdr supports: `claude`, `pi`, `omp`, `codex`,
-`gemini`, `cursor`, `cline`, ...) with its own prompt, paired with a plain
-"normal pane" you can point at a log, a test watcher, or leave idle.
+The leader pane is never split — it stays whole. The branches form a column
+beside it, split into N even rows. Each row runs one agent (any kind herdr
+supports: `claude`, `pi`, `omp`, `codex`, `gemini`, `cursor`, `cline`, ...)
+with its own prompt, paired with a plain "normal pane" you can point at a
+log, a test watcher, or leave idle.
+
+Every pane also gets a cosmetic herdr sidebar label — "Leader", "Pane i",
+"Pane i+1", ... — set via `pane report-metadata --display-agent`. This is
+separate from the real agent name used to address it (`herdr agent prompt
+demo1 ...` still works even though the sidebar shows "Pane i"), because
+herdr's live agent names must be lowercase identifiers and can't hold text
+like "Pane i+1".
 
 ## Install
 
@@ -47,6 +55,7 @@ wait_timeout_ms: 300000     # default --wait timeout per agent
 branches:
   - name: agent1
     kind: claude             # optional per-branch override
+    # display_name: "Pane i" # sidebar label; defaults to "Pane i", "Pane i+1", ...
     prompt: "..."
     normal_pane:
       command: null          # e.g. "tail -f logs/agent1.log", or null for an idle shell
