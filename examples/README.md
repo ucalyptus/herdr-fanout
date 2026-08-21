@@ -16,6 +16,7 @@ herdr-fanout apply examples/01-minimal.yaml
 | `03-shared-cwd-and-kind.yaml` | Top-level `agent_kind` and `cwd` shared by all branches, with one branch overriding `kind`. |
 | `04-custom-names.yaml` | `leader_name` plus a `display_name` for every agent pane and every normal pane. |
 | `05-normal-pane-commands.yaml` | `normal_pane.command` running a real command (dev server, test watcher) instead of an idle shell. |
+| `06-flavor-neo.yaml` | A Leader/Worker/Verifier audit team (3 `omp` workers + a `claude` verifier) built with config-level `normal_pane: false` — no shell panes, agents write their own output files. |
 
 ## Supported config fields
 
@@ -25,13 +26,18 @@ agent_kind: claude          # optional, default kind for branches without their 
 cwd: /path/to/project       # optional, defaults to the current directory
 wait_timeout_ms: 300000     # optional, default --wait timeout per agent
 leader_name: Leader          # optional, tab + sidebar label for the leader pane
+normal_pane: false          # optional, config-level default for whether branches
+                            # get a shell split. Omitted/{} keeps the split for
+                            # every branch; false builds agent-only branches; a
+                            # dict applies {display_name, command} to all. A
+                            # branch's own `normal_pane` always wins.
 
 branches:                    # required, at least one
   - name: agent1              # required, must match [a-z][a-z0-9_-]{0,31}, unique
     kind: claude               # optional, overrides agent_kind for this branch
     display_name: "claude-177" # optional, tab + sidebar label; defaults to "<kind>-<random 3 digits>"
     prompt: "..."               # required
-    normal_pane:                 # optional block
+    normal_pane:                 # optional; false builds this branch agent-only
       display_name: "claude-177-shell" # optional, defaults to "<agent's display_name>-shell"
       command: null                     # optional, a shell command to run, or null for an idle shell
 ```

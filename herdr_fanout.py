@@ -11,11 +11,13 @@ Layout built by `apply`:
     +-----------+      +---------------+   +---------------+   +---------------+
 
 4 tabs total for 3 branches: the leader's own tab (one pane, never split),
-plus one tab per branch (Agent Pane | Normal Pane, split right). Each tab
-(and its agent pane's herdr display label) defaults to "<kind>-<###>" (a
-random 3-digit suffix, e.g. "omp-233") unless a branch sets its own
-`display_name`. The normal pane gets its own label too, defaulting to
-"<agent's display_name>-shell"; override per branch with
+plus one tab per branch (Agent Pane | Normal Pane, split right). A branch can
+forego its shell split with `normal_pane: false` (or a config-level
+`normal_pane: false` disables it for every branch at once; omitted keeps the
+split for back-compat). Each tab (and its agent pane's herdr display label)
+defaults to "<kind>-<###>" (a random 3-digit suffix, e.g. "omp-233") unless a
+branch sets its own `display_name`. The normal pane gets its own label too,
+defaulting to "<agent's display_name>-shell"; override per branch with
 `normal_pane.display_name`. Every one of these labels is cosmetic only —
 set via `pane rename` and `pane report-metadata --display-agent`, and
 `tab rename`/`tab create --label` for the tabs — and is separate from the
@@ -213,6 +215,12 @@ def cmd_apply(args):
     leader_name = cfg.get("leader_name", "Leader")
     branches = cfg["branches"]
 
+    # Config-level default for whether branches get a shell (normal) pane.
+    # Absent -> split enabled (back-compat). `false` disables for every branch
+    # that does not set its own `normal_pane`. A branch's own `normal_pane`
+    # (dict, or `false`) always wins.
+    default_normal_pane = cfg.get("normal_pane", {})
+
     # The leader pane keeps its own tab, with exactly one pane — never
     # split. Every branch gets its own separate tab, holding just two
     # panes: Agent Pane | Normal Pane, split right (a vertical dividing
@@ -231,26 +239,38 @@ def cmd_apply(args):
             "--label", display_name, "--no-focus",
         )["result"]["root_pane"]["pane_id"]
 
-        normal_pane = herdr(
-            "pane", "split", "--pane", agent_pane, "--direction", "right",
-            "--cwd", cwd, "--no-focus",
-        )["result"]["pane"]["pane_id"]
+        # A branch declares no shell pane with `normal_pane: false`; otherwise
+        # it gets the Agent | Normal split (or a dict configuring that shell's
+        # name/command). The config-level `normal_pane` sets the default for
+        # every branch; an absent or `{}` default keeps the split (back-compat).
+        # Explicit presence on the branch (dict or false) always wins.
+        normal_cfg = b.get("normal_pane", default_normal_pane)
+        skip_normal = normal_cfg is False
+
+        normal_pane = normal_pane_label = None
+        if not skip_normal:
+            normal_pane = herdr(
+                "pane", "split", "--pane", agent_pane, "--direction", "right",
+                "--cwd", cwd, "--no-focus",
+            )["result"]["pane"]["pane_id"]
 
         name = b["name"]
         start_agent_with_retry(name, kind, agent_pane)
         label_pane(agent_pane, display_name)
 
-        normal_cfg = b.get("normal_pane") or {}
-        normal_name = normal_cfg.get("display_name") or f"{display_name}-shell"
-        label_pane(normal_pane, normal_name)
+        if not skip_normal:
+            normal_cfg = normal_cfg or {}
+            normal_pane_label = normal_cfg.get("display_name") or f"{display_name}-shell"
+            label_pane(normal_pane, normal_pane_label)
 
-        normal_cmd = normal_cfg.get("command")
-        if normal_cmd:
-            herdr("pane", "run", normal_pane, normal_cmd)
+            normal_cmd = normal_cfg.get("command")
+            if normal_cmd:
+                herdr("pane", "run", normal_pane, normal_cmd)
 
         print(
             f"branch {name} ({display_name}): "
-            f"agent_pane={agent_pane} normal_pane={normal_pane} ({normal_name})"
+            f"agent_pane={agent_pane}"
+            + (f" normal_pane={normal_pane} ({normal_pane_label})" if not skip_normal else " (no normal pane)")
         )
         started.append((name, b["prompt"]))
 
@@ -291,6 +311,13 @@ wait_timeout_ms: 300000
 # Tab + sidebar label for the leader pane.
 leader_name: Leader
 
+# Config-level default for whether branches get a shell ("normal") pane.
+#   - omitted or {}  -> every branch gets the Agent | Normal split (back-compat)
+#   - false          -> every branch is built with ONLY the agent pane
+#   - a dict         -> applies that {display_name, command} to every branch
+# A branch's own `normal_pane` key always wins over this default.
+# normal_pane: false
+
 branches:
   - name: agent1
     kind: claude
@@ -303,14 +330,15 @@ branches:
   - name: agent2
     kind: omp
     prompt: "TODO: describe agent2's slice of the task"
+    # Per-branch: build this one without a shell split only:
+    # normal_pane: false
     normal_pane:
       command: null
 
   - name: agent3
     kind: pi
     prompt: "TODO: describe agent3's slice of the task"
-    normal_pane:
-      command: null
+    normal_pane: false
 """
 
 

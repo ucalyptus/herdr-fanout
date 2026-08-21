@@ -1,0 +1,73 @@
+# A flavor-neo Leader/Worker/Verifier audit, materialized as a herdr fan-out.
+# Shows the config-level `normal_pane: false` default (v1, added with the
+# per-branch opt-out): every branch is built with ONLY its agent pane — no
+# idle shell split — because each agent writes its own output files.
+#
+# Kind mapping (this is the recommended shape, but change to taste):
+#   Leader  -> this pane's agent (whatever you are running)
+#   Workers -> a cheap/parallel-friendly kind (here all `omp`)
+#   Verify  -> a DIFFERENT agent family from the workers (here `claude`)
+# Keeping workers on one family and the verifier on another keeps their audit
+# blind spots uncorrelated — the point of the independent gate.
+#
+# Workflow after apply:
+#   apply prompts every branch at once. Workers scan and REPORT-ONLY, writing
+#   their findings to findings-neo-wa.md / -wb.md / -wc.md. Collate + fix as
+#   the leader, then hand the verifier a delta packet:
+#       herdr agent prompt neo-vr "<delta packet of fixes>"
+#   It reads the post-fix files and returns PASS or REVISE (≤3 rounds).
+version: 1
+agent_kind: omp
+wait_timeout_ms: 300000
+leader_name: Neo-Leader
+# cwd: /path/to/target-repo        # set to the repo being audited
+normal_pane: false                  # no shell panes for any branch
+
+branches:
+  # Worker A — lane 1 (rename the lane + surface to your audit)
+  - name: neo-wa
+    kind: omp
+    display_name: Worker-A
+    prompt: >-
+      You are Worker A in a flavor-neo audit. Lane: <lane 1 — e.g. architecture /
+      auth>. Read / scan the assigned surface in <target-dir>.
+      REPORT ONLY -- never fix. Write your complete findings report as markdown
+      to <target-dir>/findings-neo-wa.md (one finding per line:
+      [section/file, claim, what contradicts it, HIGH|MEDIUM|LOW]), then reply
+      with ONLY the file path. The report must live in that file.
+
+  # Worker B — lane 2
+  - name: neo-wb
+    kind: omp
+    display_name: Worker-B
+    prompt: >-
+      You are Worker B in a flavor-neo audit. Lane: <lane 2 — e.g. dates /
+      blockers / ownership>. Read / scan the assigned surface in <target-dir>.
+      REPORT ONLY -- never fix. Write your complete findings report as markdown
+      to <target-dir>/findings-neo-wb.md (one finding per line:
+      [section/file, claim, what contradicts it, HIGH|MEDIUM|LOW]), then reply
+      with ONLY the file path. The report must live in that file.
+
+  # Worker C — lane 3
+  - name: neo-wc
+    kind: omp
+    display_name: Worker-C
+    prompt: >-
+      You are Worker C in a flavor-neo audit. Lane: <lane 3 — e.g. docs /
+      tests / staleness>. Read / scan the assigned surface in <target-dir>.
+      REPORT ONLY -- never fix. Write your complete findings report as markdown
+      to <target-dir>/findings-neo-wc.md (one finding per line:
+      [section/file, claim, what contradicts it, HIGH|MEDIUM|LOW]), then reply
+      with ONLY the file path. The report must live in that file.
+
+  # Verifier — independent family (claude) != workers (omp). Role-holds on
+  # standby; the leader drives it after collation + fixes.
+  - name: neo-vr
+    kind: claude
+    display_name: Verifier
+    prompt: >-
+      You are the independent verifier in a flavor-neo audit. Do NOT begin any
+      scan yet. The leader will send you a delta packet of fixes to verify with
+      fresh context. Wait for that instruction, then read the actual files and
+      return a verdict: item-level PASS / FAIL + NEW FINDINGS + overall PASS or
+      REVISE. Reply "READY, awaiting packet" now.
